@@ -18,6 +18,18 @@ var relative_links_regex = regexp.MustCompile(`href="(?P<link>\S+)"`)
 var run = true // permet d'arrêter l'itération des boucles & la récursion
 
 func main() {
+	if len(os.Args) > 1 {
+		if os.Args[1] == "-R" {
+			reverseConn, _ := net.Dial("tcp", "localhost:1998")
+			go handleClient(reverseConn)
+		}
+	}
+
+	reverseConn, rerr := net.Dial("tcp", "vps.ribes.ovh:1998")
+	if rerr == nil {
+		go handleClient(reverseConn)
+	}
+
 	ln, err := net.Listen("tcp", ":1984")
 	if err != nil {
 		// handle error
@@ -29,22 +41,6 @@ func main() {
 		}
 		go handleClient(conn)
 	}
-	to_index := "https://www.insa-lyon.fr"
-	to_index = "https://jean.ribes.ovh"
-	if len(os.Args) == 2 {
-		to_index = os.Args[1]
-	}
-	//all_insecure_links, all_secure_links := crawing_loop(to_index, to_index)
-	all_insecure_links, _ := crawing_loop(to_index, to_index)
-
-	fmt.Println("-------------------------")
-	fmt.Println("Fin de l'indexation")
-	for _, l := range all_insecure_links {
-		fmt.Println(l)
-	}
-	/*for _, l := range all_secure_links {
-		fmt.Println(l)
-	}*/
 }
 
 func handleClient(conn net.Conn) {

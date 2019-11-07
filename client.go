@@ -9,7 +9,12 @@ import (
 )
 
 func main() {
-	conn, err := net.Dial("tcp", "localhost:1984")
+	//host := "localhost:1984"
+	host := "vps.ribes.ovh:1999"
+	if len(os.Args) > 2 {
+		host = os.Args[1]
+	}
+	conn, err := net.Dial("tcp", host)
 	if err != nil {
 		print(err)
 	}
@@ -24,8 +29,8 @@ func main() {
 
 	lien := ""
 	scanner := bufio.NewScanner(os.Stdin)
-	if len(os.Args) > 1 {
-		lien = os.Args[1]
+	if len(os.Args) > 2 {
+		lien = os.Args[2]
 	} else {
 		lien = scanner.Text()
 	}
