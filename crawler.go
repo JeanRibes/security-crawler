@@ -2,11 +2,11 @@ package main
 
 import (
 	"bufio"
+	"flag"
 	"fmt"
 	"io/ioutil"
 	"net"
 	"net/http"
-	"os"
 	"regexp"
 	"strconv"
 	"strings"
@@ -18,32 +18,53 @@ var relative_links_regex = regexp.MustCompile(`href="(?P<link>\S+)"`)
 var run = true // permet d'arrêter l'itération des boucles & la récursion
 
 func main() {
-	if len(os.Args) > 1 {
-		if os.Args[1] == "-R" {
-			reverseConn, _ := net.Dial("tcp", "localhost:1998")
-			go handleClient(reverseConn)
-		}
-	}
+	var proxy_host = flag.String("proxy-host", "vps.ribes.ovh:1998", "Adresse:Port du reverse proxy TCP")
+	var bind_addr = flag.String("bind-addr", ":2000", "Adresse:Port sur lequel écouter")
 
-	reverseConn, rerr := net.Dial("tcp", "vps.ribes.ovh:1998")
-	if rerr == nil {
-		go handleClient(reverseConn)
-	}
+	flag.Parse()
 
-	ln, err := net.Listen("tcp", ":1984")
-	if err != nil {
-		// handle error
+	go use_reverse_proxy(*proxy_host)
+
+	ln, err0 := net.Listen("tcp", *bind_addr)
+	if err0 != nil {
+		fmt.Println(err0)
 	}
 	for {
 		conn, err := ln.Accept()
 		if err != nil {
-			// handle error
+			fmt.Println(err)
 		}
 		go handleClient(conn)
 	}
 }
 
+func use_reverse_proxy(proxy_host string) {
+	for true {
+		println("boucle reverse proxy ...")
+		reverseConn, rerr := net.Dial("tcp", proxy_host) //connexion au reverse proxy qui va forward le traffic tcp vers nous
+		if rerr == nil {
+			fmt.Println("Connecté au reverse proxy " + reverseConn.RemoteAddr().String() + " avec l'addresse " + reverseConn.LocalAddr().String())
+			reader := bufio.NewReader(reverseConn)
+			clientip, err := reader.ReadString('\x02') // envoyé à la connexion d'un client
+			fmt.Println("client " + clientip + " reçu du reverse proxy")
+			if err != nil {
+				fmt.Println(err)
+			} else {
+				go func() {
+					handleClient(reverseConn)
+					errc := reverseConn.Close()
+					if errc != nil {
+						fmt.Println(errc)
+					}
+				}()
+			}
+		}
+		println("... fini")
+	}
+}
+
 func handleClient(conn net.Conn) {
+	fmt.Println("Service du client " + conn.RemoteAddr().String())
 	reader := bufio.NewReader(conn)
 	writer := bufio.NewWriter(conn)
 

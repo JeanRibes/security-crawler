@@ -13,7 +13,7 @@ WORKDIR /app
 COPY . .
 
 # Build the Go app
-RUN CGO_ENABLED=0 GOOS=linux go build -a proxy.go -installsuffix cgo -o main .
+RUN CGO_ENABLED=0 GOOS=linux go build -a -installsuffix cgo -o main proxy.go
 
 
 ######## Start a new stage from scratch #######
@@ -22,7 +22,7 @@ RUN CGO_ENABLED=0 GOOS=linux go build -a proxy.go -installsuffix cgo -o main .
 #RUN apk --no-cache add ca-certificates
 #
 #WORKDIR /root/
-FROM scratch
+FROM busybox
 # Copy the Pre-built binary file from the previous stage
 COPY --from=builder /app/main .
 

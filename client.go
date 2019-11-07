@@ -2,6 +2,7 @@ package main
 
 import (
 	"bufio"
+	"flag"
 	"fmt"
 	"net"
 	"os"
@@ -9,26 +10,26 @@ import (
 )
 
 func main() {
-	//host := "localhost:1984"
-	host := "vps.ribes.ovh:1999"
-	if len(os.Args) > 2 {
-		host = os.Args[1]
-	}
-	conn, err := net.Dial("tcp", host)
+	host := flag.String("host", "vps.ribes.ovh:1999", "Serveur d'indexation à utiliser")
+	website := flag.String("website", "https://vps.ribes.ovh", "Site web à indexer")
+	flag.Parse()
+	fmt.Println("Using host " + *host + " and website " + *website)
+	conn, err := net.Dial("tcp", *host)
 	if err != nil {
-		print(err)
+		fmt.Println(err.Error())
+		os.Exit(1)
 	}
 	reader := bufio.NewReader(conn)
 	writer := bufio.NewWriter(conn)
 
 	motd, err3 := recvString(reader) //"bonjour ...."
 	if err3 != nil {
-		print(err3)
+		fmt.Println(err3.Error())
+		os.Exit(1)
 	}
 	fmt.Println(motd)
 
-	lien := ""
-	scanner := bufio.NewScanner(os.Stdin)
+	/*scanner := bufio.NewScanner(os.Stdin)
 	if len(os.Args) > 2 {
 		lien = os.Args[2]
 	} else {
@@ -43,15 +44,24 @@ func main() {
 			scanner.Scan()
 			lien = scanner.Text()
 		}
-	}
+	}*/
 
-	err2, _ := sendString(writer, lien)
+	err2, _ := sendString(writer, *website)
 	//err2, _ := sendString(writer, "https://jean.ribes.ovh")
 	if err2 != nil {
-		print(err2)
+		fmt.Println(err2)
+		os.Exit(1)
 	}
-	response, err := recvString(reader)
+	response, err3 := recvString(reader)
+	if err3 != nil {
+		fmt.Println(err3)
+		os.Exit(1)
+	}
 	fmt.Println(response)
+	errclose := conn.Close()
+	if errclose != nil {
+		fmt.Println(errclose)
+	}
 }
 
 func sendString(writer *bufio.Writer, texte string) (werror error, flusherror error) {
