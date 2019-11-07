@@ -15,19 +15,28 @@ func main() {
 	}
 	reader := bufio.NewReader(conn)
 	writer := bufio.NewWriter(conn)
-	scanner := bufio.NewScanner(os.Stdin)
+
 	motd, err3 := recvString(reader) //"bonjour ...."
 	if err3 != nil {
 		print(err3)
 	}
 	fmt.Println(motd)
-	var lien string
-	for scanner.Scan() {
+
+	lien := ""
+	scanner := bufio.NewScanner(os.Stdin)
+	if len(os.Args) > 1 {
+		lien = os.Args[1]
+	} else {
 		lien = scanner.Text()
+	}
+	for true {
+
 		if strings.HasPrefix(lien, "https://") && !strings.HasSuffix(lien, "/") {
 			break
 		} else {
 			fmt.Println(lien + ": lien non valide, il doit commencer par https:// et finir par .tld, sans '/' final")
+			scanner.Scan()
+			lien = scanner.Text()
 		}
 	}
 

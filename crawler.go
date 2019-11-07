@@ -54,7 +54,7 @@ func handleClient(conn net.Conn) {
 	//writer.WriteString("Bonjour, bienvenue sur ce serveur. Entrez le site à indexer suivi du caractère ASCII EOT(end-of-transmission)\x04²")
 	//writer.WriteString("Bonjour, bienvenue sur ce serveur. Entrez le site à indexer suivi du caractère ASCII EOT(end-of-transmission)\x04")
 	//writer.Write([]byte("Bonjour, bienvenue sur ce serveur. Entrez le site à indexer suivi du caractère ASCII EOT(end-of-transmission)\x04"))
-	sendString(writer, "Bonjour, bienvenue sur ce serveur. Entrez le site à indexer suivi du caractère ASCII EOT(end-of-transmission)")
+	sendString(writer, "Bonjour, bienvenue sur ce serveur. Entrez le site à indexer sans '/' final")
 
 	//lien, err := reader.ReadString('\x04')
 	lien, err := recvString(reader)
