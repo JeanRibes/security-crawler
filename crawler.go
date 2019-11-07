@@ -51,16 +51,19 @@ func handleClient(conn net.Conn) {
 	reader := bufio.NewReader(conn)
 	writer := bufio.NewWriter(conn)
 
-	writer.WriteString("Bonjour, bienvenue sur ce serveur. Entrez le site à indexer suivi du caractère ASCII EOT(end-of-transmission)\x04²")
+	//writer.WriteString("Bonjour, bienvenue sur ce serveur. Entrez le site à indexer suivi du caractère ASCII EOT(end-of-transmission)\x04²")
 	//writer.WriteString("Bonjour, bienvenue sur ce serveur. Entrez le site à indexer suivi du caractère ASCII EOT(end-of-transmission)\x04")
-	writer.Flush()
-	lien, err := reader.ReadString('²')
+	//writer.Write([]byte("Bonjour, bienvenue sur ce serveur. Entrez le site à indexer suivi du caractère ASCII EOT(end-of-transmission)\x04"))
+	sendString(writer, "Bonjour, bienvenue sur ce serveur. Entrez le site à indexer suivi du caractère ASCII EOT(end-of-transmission)")
+
 	//lien, err := reader.ReadString('\x04')
+	lien, err := recvString(reader)
 	if err != nil {
 		print(err)
 	}
-	writer.WriteString(strconv.Itoa(to_index(strings.TrimSuffix(lien, "²"))) + "\x04²")
-	writer.Flush()
+	//writer.WriteString(strconv.Itoa(to_index(strings.TrimSuffix(lien, "²"))) + "\x04²")
+	//writer.Flush()
+	sendString(writer, "Pourcentage de liens non sécurisés : "+strconv.Itoa(to_index(lien))+"%")
 }
 func to_index(website string) int {
 	insecure, secure := crawing_loop(website, website)
@@ -215,4 +218,20 @@ func crawl(site string, root string) (http_links []string, https_links []string)
 		}
 	}
 	return []string{}, []string{}
+}
+
+func sendString(writer *bufio.Writer, texte string) (werror error, flusherror error) {
+	_, err := writer.Write([]byte(texte + "\x04"))
+	if err != nil {
+		print(err)
+	}
+	err2 := writer.Flush()
+	if err2 != nil {
+		print(err)
+	}
+	return err, err2
+}
+func recvString(reader *bufio.Reader) (string, error) {
+	str, errs := reader.ReadString('\x04')
+	return strings.TrimSuffix(str, "\x04"), errs
 }
