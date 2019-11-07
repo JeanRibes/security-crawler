@@ -1,12 +1,14 @@
 package main
 
 import (
+	"bufio"
 	"fmt"
 	"io/ioutil"
+	"net"
 	"net/http"
 	"os"
-	"os/signal"
 	"regexp"
+	"strconv"
 	"strings"
 	"sync"
 )
@@ -16,16 +18,17 @@ var relative_links_regex = regexp.MustCompile(`href="(?P<link>\S+)"`)
 var run = true // permet d'arrêter l'itération des boucles & la récursion
 
 func main() {
-	unix_chan := make(chan os.Signal, 1)   // merci stackoverflow
-	signal.Notify(unix_chan, os.Interrupt) // sert à afficher les liens trouvés avant de fermer avec CTRL+C, pour les gens pressés
-	go func() {
-		for _ = range unix_chan {
-			run = false
-			fmt.Println()
-			fmt.Println("       * -- STOP -- *")
+	ln, err := net.Listen("tcp", ":1984")
+	if err != nil {
+		// handle error
+	}
+	for {
+		conn, err := ln.Accept()
+		if err != nil {
+			// handle error
 		}
-	}()
-
+		go handleClient(conn)
+	}
 	to_index := "https://www.insa-lyon.fr"
 	to_index = "https://jean.ribes.ovh"
 	if len(os.Args) == 2 {
@@ -42,6 +45,26 @@ func main() {
 	/*for _, l := range all_secure_links {
 		fmt.Println(l)
 	}*/
+}
+
+func handleClient(conn net.Conn) {
+	reader := bufio.NewReader(conn)
+	writer := bufio.NewWriter(conn)
+
+	writer.WriteString("Bonjour, bienvenue sur ce serveur. Entrez le site à indexer suivi du caractère ASCII EOT(end-of-transmission)\x04²")
+	//writer.WriteString("Bonjour, bienvenue sur ce serveur. Entrez le site à indexer suivi du caractère ASCII EOT(end-of-transmission)\x04")
+	writer.Flush()
+	lien, err := reader.ReadString('²')
+	//lien, err := reader.ReadString('\x04')
+	if err != nil {
+		print(err)
+	}
+	writer.WriteString(strconv.Itoa(to_index(strings.TrimSuffix(lien, "²"))) + "\x04²")
+	writer.Flush()
+}
+func to_index(website string) int {
+	insecure, secure := crawing_loop(website, website)
+	return int((100 * float64(len(insecure))) / float64(len(secure)))
 }
 
 func stringInStrings(string string, strings []string) bool {
