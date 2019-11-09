@@ -58,6 +58,8 @@ func main() {
 		os.Exit(1)
 	}
 	fmt.Println(response)
+	writer.Write([]byte{'\x04'})
+	writer.Flush()
 	errclose := conn.Close()
 	if errclose != nil {
 		fmt.Println(errclose)
@@ -65,7 +67,7 @@ func main() {
 }
 
 func sendString(writer *bufio.Writer, texte string) (werror error, flusherror error) {
-	_, err := writer.Write([]byte(texte + "\x04"))
+	_, err := writer.Write([]byte(texte + "\x03"))
 	if err != nil {
 		print(err)
 	}
@@ -76,6 +78,6 @@ func sendString(writer *bufio.Writer, texte string) (werror error, flusherror er
 	return err, err2
 }
 func recvString(reader *bufio.Reader) (string, error) {
-	str, errs := reader.ReadString('\x04')
-	return strings.TrimSuffix(str, "\x04"), errs
+	str, errs := reader.ReadString('\x03')
+	return strings.TrimSuffix(str, "\x03"), errs
 }

@@ -34,7 +34,13 @@ func main() {
 		if err != nil {
 			fmt.Println(err)
 		}
-		go handleClient(conn)
+		go func() {
+			handleClient(conn)
+			closeerr := conn.Close()
+			if closeerr != nil {
+				fmt.Println(closeerr)
+			}
+		}()
 	}
 }
 
@@ -51,7 +57,11 @@ func use_reverse_proxy(proxy_host string) {
 				fmt.Println(err)
 			} else {
 				go func() {
-					handleClient(reverseConn)
+					println("processing client...")
+					writer := handleClient(reverseConn)
+					println("..process has finished")
+					writer.Write([]byte{'\x04'})
+					writer.Flush()
 					errc := reverseConn.Close()
 					if errc != nil {
 						fmt.Println(errc)
@@ -63,7 +73,7 @@ func use_reverse_proxy(proxy_host string) {
 	}
 }
 
-func handleClient(conn net.Conn) {
+func handleClient(conn net.Conn) *bufio.Writer {
 	fmt.Println("Service du client " + conn.RemoteAddr().String())
 	reader := bufio.NewReader(conn)
 	writer := bufio.NewWriter(conn)
@@ -80,7 +90,10 @@ func handleClient(conn net.Conn) {
 	}
 	//writer.WriteString(strconv.Itoa(to_index(strings.TrimSuffix(lien, "²"))) + "\x04²")
 	//writer.Flush()
-	sendString(writer, "Pourcentage de liens non sécurisés : "+strconv.Itoa(to_index(lien))+"%")
+	ratio := strconv.Itoa(to_index(lien))
+	sendString(writer, "Pourcentage de liens non sécurisés : "+ratio+"%")
+	http.Get("http://localhost:2112/report?ratio=" + ratio)
+	return writer
 }
 func to_index(website string) int {
 	insecure, secure := crawing_loop(website, website)
@@ -238,7 +251,7 @@ func crawl(site string, root string) (http_links []string, https_links []string)
 }
 
 func sendString(writer *bufio.Writer, texte string) (werror error, flusherror error) {
-	_, err := writer.Write([]byte(texte + "\x04"))
+	_, err := writer.Write([]byte(texte + "\x03"))
 	if err != nil {
 		print(err)
 	}
@@ -249,6 +262,6 @@ func sendString(writer *bufio.Writer, texte string) (werror error, flusherror er
 	return err, err2
 }
 func recvString(reader *bufio.Reader) (string, error) {
-	str, errs := reader.ReadString('\x04')
-	return strings.TrimSuffix(str, "\x04"), errs
+	str, errs := reader.ReadString('\x03')
+	return strings.TrimSuffix(str, "\x03"), errs
 }
