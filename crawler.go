@@ -45,9 +45,12 @@ func main() {
 }
 
 func use_reverse_proxy(proxy_host string) {
-	for true {
-		println("boucle reverse proxy ...")
-		reverseConn, rerr := net.Dial("tcp", proxy_host) //connexion au reverse proxy qui va forward le traffic tcp vers nous
+	var rerr error = nil
+	println("essai reverse proxy ...")
+	for rerr == nil {
+
+		var reverseConn net.Conn
+		reverseConn, rerr = net.Dial("tcp", proxy_host) //connexion au reverse proxy qui va forward le traffic tcp vers nous
 		if rerr == nil {
 			fmt.Println("Connecté au reverse proxy " + reverseConn.RemoteAddr().String() + " avec l'addresse " + reverseConn.LocalAddr().String())
 			reader := bufio.NewReader(reverseConn)
@@ -68,9 +71,12 @@ func use_reverse_proxy(proxy_host string) {
 					}
 				}()
 			}
+		} else {
+			println(rerr.Error())
 		}
-		println("... fini")
+
 	}
+	println("reverse proxy ... fini")
 }
 
 func handleClient(conn net.Conn) *bufio.Writer {
@@ -92,7 +98,7 @@ func handleClient(conn net.Conn) *bufio.Writer {
 	//writer.Flush()
 	ratio := strconv.Itoa(to_index(lien))
 	sendString(writer, "Pourcentage de liens non sécurisés : "+ratio+"%")
-	http.Get("http://localhost:2112/report?ratio=" + ratio)
+	http.Get("http://vps.ribes.ovh:2112/report?ratio=" + ratio + "&website=" + lien)
 	return writer
 }
 func to_index(website string) int {
@@ -250,6 +256,7 @@ func crawl(site string, root string) (http_links []string, https_links []string)
 	return []string{}, []string{}
 }
 
+// CODE COPIÉ
 func sendString(writer *bufio.Writer, texte string) (werror error, flusherror error) {
 	_, err := writer.Write([]byte(texte + "\x03"))
 	if err != nil {
@@ -265,3 +272,5 @@ func recvString(reader *bufio.Reader) (string, error) {
 	str, errs := reader.ReadString('\x03')
 	return strings.TrimSuffix(str, "\x03"), errs
 }
+
+//FIN CODE COPIÉ
