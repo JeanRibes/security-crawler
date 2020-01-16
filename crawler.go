@@ -18,17 +18,21 @@ var relative_links_regex = regexp.MustCompile(`href="(?P<link>\S+)"`)
 var run = true // permet d'arrêter l'itération des boucles & la récursion
 
 func main() {
-	var proxy_host = flag.String("proxy-host", "vps.ribes.ovh:1998", "Adresse:Port du reverse proxy TCP")
-	var bind_addr = flag.String("bind-addr", ":2000", "Adresse:Port sur lequel écouter")
+	proxy_host := flag.String("proxy-host", "vps.ribes.ovh:1998", "Adresse:Port du reverse proxy TCP")
+	bind_addr := flag.String("bind-addr", ":2000", "Adresse:Port sur lequel écouter")
+	use_proxy := flag.Bool("no-proxy", false, "Essayer de récupérer des clients depuis un proxy inverse")
 
 	flag.Parse()
 
-	go use_reverse_proxy(*proxy_host)
+	if !*use_proxy {
+		go use_reverse_proxy(*proxy_host) // connexion inverse pour récupérer des clients depuis un proxy internet
+	}
 
 	ln, err0 := net.Listen("tcp", *bind_addr)
 	if err0 != nil {
 		fmt.Println(err0)
 	}
+	fmt.Println("Listening on " + ln.Addr().String())
 	for {
 		conn, err := ln.Accept()
 		if err != nil {
@@ -39,7 +43,8 @@ func main() {
 }
 
 func use_reverse_proxy(proxy_host string) {
-	for true {
+	should_retry := true
+	for should_retry {
 		println("boucle reverse proxy ...")
 		reverseConn, rerr := net.Dial("tcp", proxy_host) //connexion au reverse proxy qui va forward le traffic tcp vers nous
 		if rerr == nil {
@@ -51,15 +56,17 @@ func use_reverse_proxy(proxy_host string) {
 				fmt.Println(err)
 			} else {
 				go func() {
-					handleClient(reverseConn)
+					handleClient(reverseConn) // bloquant
 					errc := reverseConn.Close()
 					if errc != nil {
 						fmt.Println(errc)
 					}
 				}()
 			}
+		} else {
+			should_retry = false
 		}
-		println("... fini")
+		//println("... fini")
 	}
 }
 
@@ -71,16 +78,23 @@ func handleClient(conn net.Conn) {
 	//writer.WriteString("Bonjour, bienvenue sur ce serveur. Entrez le site à indexer suivi du caractère ASCII EOT(end-of-transmission)\x04²")
 	//writer.WriteString("Bonjour, bienvenue sur ce serveur. Entrez le site à indexer suivi du caractère ASCII EOT(end-of-transmission)\x04")
 	//writer.Write([]byte("Bonjour, bienvenue sur ce serveur. Entrez le site à indexer suivi du caractère ASCII EOT(end-of-transmission)\x04"))
-	sendString(writer, "Bonjour, bienvenue sur ce serveur. Entrez le site à indexer sans '/' final")
+	sendString(writer, "Bonjour, bienvenue sur ce serveur. Donnez le site à indexer sans '/' final")
 
 	//lien, err := reader.ReadString('\x04')
 	lien, err := recvString(reader)
 	if err != nil {
 		print(err)
+		sendString(writer, "Erreur de communication")
+	} else {
+		pourcentage := to_index(lien)
+		if pourcentage > 0 {
+			sendString(writer, "Pourcentage de liens non sécurisés : "+strconv.Itoa(pourcentage)+"%")
+		} else {
+			sendString(writer, "Le site n'a pas pu être indexé")
+		}
 	}
 	//writer.WriteString(strconv.Itoa(to_index(strings.TrimSuffix(lien, "²"))) + "\x04²")
 	//writer.Flush()
-	sendString(writer, "Pourcentage de liens non sécurisés : "+strconv.Itoa(to_index(lien))+"%")
 }
 func to_index(website string) int {
 	insecure, secure := crawing_loop(website, website)
@@ -97,6 +111,13 @@ func stringInStrings(string string, strings []string) bool {
 	return false
 }
 
+/*
+Cette fonction orchestre les scrape de pages web, en lançant poolcrawl de manière parallèle.
+Elle lance des requêtes sur tous les liens trouvés sur la 1e page, attend que toutes les réponses aient été reçues,
+puis fait de même sur tous les liens trouvés dans toutes les pages.
+C'est une sorte de récursivité d'un point de vue des liens hypertexte.
+Entre les itérations elle enlève les liens présents en double (ça fait vite beaucoup sur les sites avec des menus...)
+*/
 func crawing_loop(page string, root string) ([]string, []string) {
 	wg := &sync.WaitGroup{}
 	explored_linksP := &[]string{}
@@ -122,15 +143,16 @@ func crawing_loop(page string, root string) ([]string, []string) {
 		fmt.Println(len(*next_loop_explore))
 		to_explore = next_loop_explore // on échange les variables
 	}
-	/*print("deddup finale")
-	deduplicateur(*all_secure_linksP)
-	deduplicateur(*all_insecure_linksP)*/
 
 	return *all_insecure_linksP, *all_secure_linksP
 }
 
 var to_explore_lock sync.RWMutex
 
+/*
+Cette fonction s'occupe de faire fonctionnel `crawl()` dans un environnement avec des goroutines où on ne peut
+pas utliser 'return'
+*/
 func poolcrawl(page string, root string, to_explore *[]string, explored_linksP *[]string, all_insecure_linksP *[]string, all_secure_linksP *[]string, total_links_list_lockP *sync.RWMutex, wg *sync.WaitGroup) {
 	defer wg.Done()
 	if strings.Contains(page, root) && run {
@@ -184,15 +206,15 @@ func extract_hrefs(page []byte, current_page string, root string) (http_links []
 		if strings.Contains(link, "https://") {
 			//fmt.Println(" s")
 			https_links = append(https_links, link)
-			continue
+			continue // en fait si ça commence par https:// ça ne va pas commencer par autre chose
 		}
 		if strings.Contains(link, "http://") {
 			//fmt.Println(" is")
 			http_links = append(http_links, link)
-			continue
+			continue // oui on peut coder ça avec des ELSE mais c'est moins lisible
 		}
 		if link[0] == '?' { //le lien diffère juste des query params url, donc il faut le reconstruire
-			// pas sûr que ça permette de trouver plus d'infos
+			// pas sûr que ça permette de trouver plus d'infos à part peut-être sur Wordpress & co
 			//fmt.Println("bf r "+link)
 			link = current_page + link
 			//fmt.Println(" -> ref to " + link)
@@ -211,6 +233,9 @@ func extract_hrefs(page []byte, current_page string, root string) (http_links []
 	return http_links, https_links
 }
 
+/*
+Digère une page web et renvoie les liens trouvés dessus (différenciés entre https et http
+*/
 func crawl(site string, root string) (http_links []string, https_links []string) {
 	//fmt.Print("Exploring page " + site + " for links")
 
@@ -219,7 +244,7 @@ func crawl(site string, root string) (http_links []string, https_links []string)
 		fmt.Println(err)
 		return []string{}, []string{}
 	}
-	if strings.Contains(page.Header.Get("content-type"), "text/html") {
+	if strings.Contains(page.Header.Get("content-type"), "text/html") { // on évite de vomir des erreurs en lisant une image
 		corpsPage, rerr := ioutil.ReadAll(page.Body)
 		if rerr == nil {
 			liensHttp, liensHttps := extract_hrefs(corpsPage, site, root)

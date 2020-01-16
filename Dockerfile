@@ -12,7 +12,7 @@ WORKDIR /app
 # Copy the source from the current directory to the Working Directory inside the container
 COPY . .
 
-# Build the Go app
+# Build avec librairies statiques
 RUN CGO_ENABLED=0 GOOS=linux go build -a -installsuffix cgo -o main proxy.go
 
 
@@ -26,7 +26,6 @@ FROM busybox
 # Copy the Pre-built binary file from the previous stage
 COPY --from=builder /app/main .
 
-# Expose port 8080 to the outside world
 EXPOSE 1998
 EXPOSE 1999
 

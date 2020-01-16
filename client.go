@@ -11,7 +11,7 @@ import (
 
 func main() {
 	host := flag.String("host", "vps.ribes.ovh:1999", "Serveur d'indexation à utiliser")
-	website := flag.String("website", "https://vps.ribes.ovh", "Site web à indexer")
+	website := flag.String("website", "https://example.ribes.ovh", "Site web à indexer")
 	flag.Parse()
 	fmt.Println("Using host " + *host + " and website " + *website)
 	conn, err := net.Dial("tcp", *host)
