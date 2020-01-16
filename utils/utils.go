@@ -1,11 +1,11 @@
-package main
+package utils
 
 import (
 	"bufio"
 	"strings"
 )
 
-func sendString(writer *bufio.Writer, texte string) (werror error, flusherror error) {
+func SendString(writer *bufio.Writer, texte string) (werror error, flusherror error) {
 	_, err := writer.Write([]byte(texte + "\x04"))
 	if err != nil {
 		print(err)
@@ -16,7 +16,7 @@ func sendString(writer *bufio.Writer, texte string) (werror error, flusherror er
 	}
 	return err, err2
 }
-func recvString(reader *bufio.Reader) (string, error) {
+func RecvString(reader *bufio.Reader) (string, error) {
 	str, errs := reader.ReadString('\x04')
 	return strings.TrimSuffix(str, "\x04"), errs
 }

@@ -1,6 +1,7 @@
 package main
 
 import (
+	"./utils"
 	"bufio"
 	"flag"
 	"fmt"
@@ -78,19 +79,19 @@ func handleClient(conn net.Conn) {
 	//writer.WriteString("Bonjour, bienvenue sur ce serveur. Entrez le site à indexer suivi du caractère ASCII EOT(end-of-transmission)\x04²")
 	//writer.WriteString("Bonjour, bienvenue sur ce serveur. Entrez le site à indexer suivi du caractère ASCII EOT(end-of-transmission)\x04")
 	//writer.Write([]byte("Bonjour, bienvenue sur ce serveur. Entrez le site à indexer suivi du caractère ASCII EOT(end-of-transmission)\x04"))
-	sendString(writer, "Bonjour, bienvenue sur ce serveur. Donnez le site à indexer sans '/' final")
+	utils.SendString(writer, "Bonjour, bienvenue sur ce serveur. Donnez le site à indexer sans '/' final")
 
 	//lien, err := reader.ReadString('\x04')
-	lien, err := recvString(reader)
+	lien, err := utils.RecvString(reader)
 	if err != nil {
 		print(err)
-		sendString(writer, "Erreur de communication")
+		utils.SendString(writer, "Erreur de communication")
 	} else {
 		pourcentage := to_index(lien)
 		if pourcentage > 0 {
-			sendString(writer, "Pourcentage de liens non sécurisés : "+strconv.Itoa(pourcentage)+"%")
+			utils.SendString(writer, "Pourcentage de liens non sécurisés : "+strconv.Itoa(pourcentage)+"%")
 		} else {
-			sendString(writer, "Le site n'a pas pu être indexé")
+			utils.SendString(writer, "Le site n'a pas pu être indexé")
 		}
 	}
 	//writer.WriteString(strconv.Itoa(to_index(strings.TrimSuffix(lien, "²"))) + "\x04²")
@@ -260,20 +261,4 @@ func crawl(site string, root string) (http_links []string, https_links []string)
 		}
 	}
 	return []string{}, []string{}
-}
-
-func sendString(writer *bufio.Writer, texte string) (werror error, flusherror error) {
-	_, err := writer.Write([]byte(texte + "\x04"))
-	if err != nil {
-		print(err)
-	}
-	err2 := writer.Flush()
-	if err2 != nil {
-		print(err)
-	}
-	return err, err2
-}
-func recvString(reader *bufio.Reader) (string, error) {
-	str, errs := reader.ReadString('\x04')
-	return strings.TrimSuffix(str, "\x04"), errs
 }
