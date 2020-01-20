@@ -7,12 +7,29 @@ import (
 	"fmt"
 	"net"
 	"os"
+	"strings"
+	"time"
 )
 
+var defaulthost = "do-fra1.ribes.ovh:2000"
+
 func main() {
-	host := flag.String("host", "vps.ribes.ovh:1999", "Serveur d'indexation à utiliser")
+
+	host := flag.String("host", defaulthost, "Serveur d'indexation à utiliser")
 	website := flag.String("website", "https://example.ribes.ovh", "Site web à indexer")
 	flag.Parse()
+
+	localServer := findLocalServer()
+	println(localServer)
+	if localServer != "" {
+		if *host == defaulthost {
+			host = &localServer //c'est mieux dans ce sens les pointeurs
+			//*host = localServer
+			fmt.Println([]byte("192.168.22.23:2000"))
+			fmt.Println([]byte(*host))
+		}
+	}
+
 	fmt.Println("Using host " + *host + " and website " + *website)
 	conn, err := net.Dial("tcp", *host)
 	if err != nil {
@@ -62,4 +79,28 @@ func main() {
 	if errclose != nil {
 		fmt.Println(errclose)
 	}
+}
+
+/*
+Cherche une addresse en écoutant le traffic broadcast
+*/
+func findLocalServer() string {
+	uconn, err0 := net.ListenUDP("udp4", &net.UDPAddr{IP: net.IPv4zero, Port: 2020, Zone: ""})
+	err := uconn.SetReadDeadline(time.Now().Add(time.Second * 3))
+	if err != nil {
+		fmt.Println(err)
+	}
+	if err0 == nil {
+		buf := make([]byte, 30)
+		_, _, err1 := uconn.ReadFromUDP(buf)
+		if err1 == nil {
+			ls := strings.Split(string(buf), "\x04") // il faut un terminateur sinon on lit les 0 du buffer
+			return ls[0]
+		} else {
+			fmt.Println(err1)
+		}
+	} else {
+		fmt.Println(err0)
+	}
+	return ""
 }

@@ -12,6 +12,7 @@ import (
 	"strconv"
 	"strings"
 	"sync"
+	"time"
 )
 
 var relative_links_regex = regexp.MustCompile(`href="(?P<link>\S+)"`)
@@ -24,6 +25,7 @@ func main() {
 	use_proxy := flag.Bool("no-proxy", false, "Essayer de récupérer des clients depuis un proxy inverse")
 
 	flag.Parse()
+	go announceBroadcast(*bind_addr)
 
 	if !*use_proxy {
 		go use_reverse_proxy(*proxy_host) // connexion inverse pour récupérer des clients depuis un proxy internet
@@ -261,4 +263,36 @@ func crawl(site string, root string) (http_links []string, https_links []string)
 		}
 	}
 	return []string{}, []string{}
+}
+func announceBroadcast(message string) {
+	a := strings.Split(message, ":")
+	message = a[1]
+	addrs, _ := net.InterfaceAddrs()
+	var laddr string
+	for _, addr := range addrs {
+		if addr.String() != "127.0.0.1/8" {
+			laddr = addr.String()
+			fmt.Println(addr.String())
+			break
+		}
+	}
+	h := strings.Split(laddr, "/")
+	laddr = h[0]
+	buf := []byte(laddr + ":" + message + "\x04")
+	broadcastAddr := net.UDPAddr{IP: net.IPv4bcast, Port: 2020, Zone: ""}
+	bconn, err0 := net.ListenUDP("udp4", nil)
+	if err0 == nil {
+		fmt.Println(string(buf))
+		_, err1 := bconn.WriteToUDP(buf, &broadcastAddr)
+		if err1 == nil {
+			for {
+				time.Sleep(time.Millisecond * 100) // attend 3s avant de ré-emettre
+				bconn.WriteToUDP(buf, &broadcastAddr)
+			}
+		} else {
+			fmt.Println(err1)
+		}
+	} else {
+		fmt.Println(err0)
+	}
 }
