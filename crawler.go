@@ -101,7 +101,7 @@ func handleClient(conn net.Conn) {
 }
 func to_index(website string) int {
 	insecure, secure := crawing_loop(website, website)
-	return int((100 * float64(len(insecure))) / float64(len(secure)))
+	return int((100 * float64(len(insecure))) / float64(len(secure)+len(insecure)))
 }
 
 func stringInStrings(string string, strings []string) bool {
@@ -129,7 +129,10 @@ func crawing_loop(page string, root string) ([]string, []string) {
 	all_insecure_linksP := &[]string{}
 	all_secure_linksP := &[]string{}
 	to_explore := &[]string{root}
-	for len(*to_explore) > 0 {
+	profondeur := 0
+	for len(*to_explore) > 0 && profondeur < 4 {
+		println(profondeur)
+		profondeur += len(*to_explore) / 100
 		next_loop_explore := &[]string{}
 		*explored_linksP = append(*explored_linksP, *to_explore...) // en fait on pourait nettoyer dans chaque goroutine
 		for _, link := range *to_explore {                          // on lance toutes les requetes en même temps
@@ -169,7 +172,7 @@ func poolcrawl(page string, root string, to_explore *[]string, explored_linksP *
 		fmt.Println(len(*to_explore))*/
 
 		var local_to_add []string
-		for _, link := range secure_links_page {
+		for _, link := range secure_links_page { // on se limite ) 100 liens
 			if strings.Contains(link, root) { // on reste sur le même site
 				if !stringInStrings(link, *explored_linksP) { // on va pas 2 fois sur la même page
 					local_to_add = append(local_to_add, link)
