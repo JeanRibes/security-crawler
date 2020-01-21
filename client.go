@@ -5,6 +5,8 @@ import (
 	"bufio"
 	"flag"
 	"fmt"
+	"github.com/andlabs/ui"
+	_ "github.com/andlabs/ui/winmanifest"
 	"net"
 	"os"
 	"strings"
@@ -12,11 +14,56 @@ import (
 )
 
 var defaulthost = "do-fra1.ribes.ovh:2000"
+var defaultwebsite = "https://example.ribes.ovh"
+
+var mainwin *ui.Window
 
 func main() {
+	ui.Main(setupUI)
+}
 
-	host := flag.String("host", defaulthost, "Serveur d'indexation à utiliser")
-	website := flag.String("website", "https://example.ribes.ovh", "Site web à indexer")
+func setupUI() {
+	mainwin = ui.NewWindow("Security Crawler", 640, 130, true)
+	mainwin.OnClosing(func(*ui.Window) bool {
+		ui.Quit()
+		return true
+	})
+	ui.OnShouldQuit(func() bool {
+		mainwin.Destroy()
+		return true
+	})
+	mainwin.SetMargined(true)
+
+	vbox := ui.NewVerticalBox()
+	website_hbox := ui.NewHorizontalBox()
+	server_hbox := ui.NewHorizontalBox()
+	mainwin.SetChild(vbox)
+
+	server_entry := ui.NewEntry()
+	server_entry.SetText(defaulthost)
+	website_entry := ui.NewEntry()
+	website_entry.SetText(defaultwebsite)
+	button := ui.NewButton("Lancer l'exploration du site !")
+
+	button.OnClicked(func(*ui.Button) {
+		ui.MsgBox(mainwin, "Réponse du serveur", crawl_website(server_entry.Text(), website_entry.Text()))
+	})
+
+	server_hbox.Append(ui.NewLabel("Adresse du serveur :"), false)
+	server_hbox.Append(server_entry, true)
+	website_hbox.Append(ui.NewLabel("Adresse du site :"), false)
+	website_hbox.Append(website_entry, true)
+
+	vbox.Append(server_hbox, false)
+	vbox.Append(website_hbox, false)
+	vbox.Append(button, false)
+
+	mainwin.Show()
+}
+
+func crawl_website(server_adress string, website_adress string) string {
+	host := flag.String("host", server_adress, "Serveur d'indexation à utiliser")
+	website := flag.String("website", website_adress, "Site web à indexer")
 	flag.Parse()
 
 	localServer := findLocalServer()
@@ -74,11 +121,13 @@ func main() {
 		fmt.Println(err3)
 		os.Exit(1)
 	}
-	fmt.Println(response)
+
 	errclose := conn.Close()
 	if errclose != nil {
 		fmt.Println(errclose)
 	}
+	fmt.Println(response)
+	return response
 }
 
 /*
