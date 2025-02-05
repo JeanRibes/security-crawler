@@ -6,7 +6,7 @@ import (
 	"fmt"
 	"net"
 	"os"
-	"strings"
+	"security-crawler/utils"
 )
 
 func main() {
@@ -22,7 +22,7 @@ func main() {
 	reader := bufio.NewReader(conn)
 	writer := bufio.NewWriter(conn)
 
-	motd, err3 := recvString(reader) //"bonjour ...."
+	motd, err3 := utils.RecvString(reader) //"bonjour ...."
 	if err3 != nil {
 		fmt.Println(err3.Error())
 		os.Exit(1)
@@ -46,13 +46,13 @@ func main() {
 		}
 	}*/
 
-	err2, _ := sendString(writer, *website)
+	err2, _ := utils.SendString(writer, *website)
 	//err2, _ := sendString(writer, "https://jean.ribes.ovh")
 	if err2 != nil {
 		fmt.Println(err2)
 		os.Exit(1)
 	}
-	response, err3 := recvString(reader)
+	response, err3 := utils.RecvString(reader)
 	if err3 != nil {
 		fmt.Println(err3)
 		os.Exit(1)
@@ -64,20 +64,4 @@ func main() {
 	if errclose != nil {
 		fmt.Println(errclose)
 	}
-}
-
-func sendString(writer *bufio.Writer, texte string) (werror error, flusherror error) {
-	_, err := writer.Write([]byte(texte + "\x03"))
-	if err != nil {
-		print(err)
-	}
-	err2 := writer.Flush()
-	if err2 != nil {
-		print(err)
-	}
-	return err, err2
-}
-func recvString(reader *bufio.Reader) (string, error) {
-	str, errs := reader.ReadString('\x03')
-	return strings.TrimSuffix(str, "\x03"), errs
 }
